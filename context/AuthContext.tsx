@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useSocket, disconnectSocket } from '@/hooks/useSocket';
+import { backendBase } from '@/lib/api';
 
 export type UserRole = 'superadmin' | 'admin' | 'user';
 
@@ -21,11 +22,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
-
-function backendBase() {
-  if (typeof window === 'undefined') return 'http://localhost:3005';
-  return `http://${window.location.hostname}:3005`;
-}
 
 const MOCK_USERS: Record<UserRole, User> = {
   superadmin: { email: 'c.carranza@alzak.org', nombre: 'Carlos Carranza',  role: 'superadmin' },
@@ -78,7 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!socket || !user) return;
 
-    // SuperAdmin eliminó esta cuenta → forzar logout inmediato
     const handleForceLogout = () => {
       setUser(null);
       localStorage.removeItem('alzak_user');
@@ -87,13 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.dispatchEvent(new CustomEvent('alzak:force_logout'));
     };
 
-    // SuperAdmin cambió el rol de este usuario → actualizar sesión local
     const handleRoleChanged = ({ email: targetEmail, role: newRole }: { email: string; role: string }) => {
       if (targetEmail !== user.email) return;
       const updated: User = { ...user, role: newRole as UserRole };
       setUser(updated);
       localStorage.setItem('alzak_user', JSON.stringify(updated));
-      // Notificar a la UI (Toast en Navigation.tsx lo escucha)
       window.dispatchEvent(new CustomEvent('alzak:role_changed', { detail: { role: newRole } }));
     };
 
