@@ -84,7 +84,7 @@ export function KanbanAdminView({
                         <span className="text-[10px] text-slate-300 dark:text-slate-700">—</span>
                       </div>
                     ) : (
-                      cards.map((t) => <KanbanCard key={t.id} t={t} onClick={() => onCardClick(t)} />)
+                      cards.map((t) => <KanbanCard key={t.id} t={t} isAdmin onClick={() => onCardClick(t)} onEdit={onEdit} onDelete={onDelete} />)
                     )}
                   </div>
                 );
