@@ -5,7 +5,7 @@ import type { RevisionTask, RevisionChanges } from '@/hooks/useRevision';
 import type { MockUser }    from '@/lib/mockData';
 import type { MockProject } from '@/lib/mockData';
 
-export type ProjectInfo = Pick<MockProject, 'id_proyecto' | 'nombre_proyecto'> & {
+export type ProjectInfo = Pick<MockProject, 'id_proyecto' | 'nombre_proyecto' | 'estado'> & {
   empresa?: string | null;
   financiador?: string | null;
 };
@@ -42,10 +42,18 @@ export default function RevisionRow({
   const [fechaInicio, setFechaInicio] = useState(task.fecha_inicio ?? '');
   const [fechaFin,    setFechaFin]    = useState(task.fecha_entrega ?? '');
 
-  const [proyId,      setProyId]      = useState(task.id_proyecto);
-  const [proyNombre,  setProyNombre]  = useState(task.nombre_proyecto);
-  const [empresa,     setEmpresa]     = useState(task.empresa ?? '');
-  const [financiador, setFinanciador] = useState(task.financiador ?? '');
+  const [proyId,             setProyId]             = useState(task.id_proyecto);
+  const [proyNombre,         setProyNombre]         = useState(task.nombre_proyecto);
+  const [empresa,            setEmpresa]            = useState(task.empresa ?? '');
+  const [financiador,        setFinanciador]        = useState(task.financiador ?? '');
+  // Combobox columna ID
+  const [showProjectsId,     setShowProjectsId]     = useState(false);
+  const [projectSearchId,    setProjectSearchId]    = useState('');
+  const [editProjectId,      setEditProjectId]      = useState(false);
+  // Combobox columna Nombre
+  const [showProjectsNombre, setShowProjectsNombre] = useState(false);
+  const [projectSearchNombre,setProjectSearchNombre]= useState('');
+  const [editProjectNombre,  setEditProjectNombre]  = useState(false);
 
   // Sync local state when the server refreshes task data
   useEffect(() => { setDesc(task.tarea_descripcion); },           [task.tarea_descripcion]);
@@ -60,28 +68,54 @@ export default function RevisionRow({
   const isProjectInvalid    = isInvalid && !proyId;
   const isResponsableInvalid = isInvalid && !task.responsable_correo;
 
-  const filteredUsers = users
-    .filter((u) => u.activo && (
+  const activeProjects = projects.filter((p) => p.estado === 'Activo');
+
+  const filteredProjectsById = activeProjects.filter((p) =>
+    !projectSearchId ||
+    p.id_proyecto.toLowerCase().includes(projectSearchId.toLowerCase()) ||
+    p.nombre_proyecto.toLowerCase().includes(projectSearchId.toLowerCase())
+  );
+
+  const filteredProjectsByNombre = activeProjects.filter((p) =>
+    !projectSearchNombre ||
+    p.nombre_proyecto.toLowerCase().includes(projectSearchNombre.toLowerCase()) ||
+    p.id_proyecto.toLowerCase().includes(projectSearchNombre.toLowerCase())
+  );
+
+  const selectProject = (id: string) => {
+    const info = projectMap[id];
+    setProyId(id);
+    setProyNombre(info?.nombre_proyecto ?? id);
+    setEmpresa(info?.empresa ?? '');
+    setFinanciador(info?.financiador ?? '');
+    // Cierra ambos comboboxes
+    setEditProjectId(false);   setShowProjectsId(false);   setProjectSearchId('');
+    setEditProjectNombre(false);setShowProjectsNombre(false);setProjectSearchNombre('');
+    onUpdate({ id_proyecto: id });
+  };
+
+  const clearProject = () => {
+    setProyId('');
+    setProyNombre('');
+    setEmpresa('');
+    setFinanciador('');
+    setEditProjectId(true);    setProjectSearchId('');
+    setEditProjectNombre(true); setProjectSearchNombre('');
+  };
+
+  const filteredUsers = users.filter((u) =>
+    u.activo && (
       !userSearch ||
       u.nombre_completo.toLowerCase().includes(userSearch.toLowerCase()) ||
       u.correo.toLowerCase().includes(userSearch.toLowerCase())
-    ))
-    .slice(0, 6);
+    )
+  );
 
   const saveDesc = async () => {
     if (desc === task.tarea_descripcion) return;
     setSaving(true);
     await onUpdate({ tarea_descripcion: desc });
     setSaving(false);
-  };
-
-  const handleProjectChange = async (newId: string) => {
-    const info = projectMap[newId];
-    setProyId(newId);
-    setProyNombre(info?.nombre_proyecto ?? newId);
-    setEmpresa(info?.empresa ?? '');
-    setFinanciador(info?.financiador ?? '');
-    await onUpdate({ id_proyecto: newId });
   };
 
   return (
@@ -93,32 +127,98 @@ export default function RevisionRow({
           : 'border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors align-top'
       }
     >
-      {/* ID Proyecto — dropdown con cascada */}
+      {/* ID Proyecto — combobox búsqueda por ID o nombre */}
       <td className="px-2 py-1.5 whitespace-nowrap">
-        <select
-          value={proyId}
-          onChange={(e) => handleProjectChange(e.target.value)}
-          aria-label="Seleccionar proyecto"
-          className={`text-[10px] font-mono font-bold rounded-md px-1.5 py-0.5 border focus:outline-none focus:ring-1 w-[96px] ${
-            isProjectInvalid
-              ? 'border-red-500 ring-1 ring-red-400 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-              : proyId
-                ? 'border-slate-200 dark:border-slate-700 bg-alzak-blue/10 dark:bg-alzak-gold/10 text-alzak-blue dark:text-alzak-gold focus:ring-alzak-blue/40'
-                : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-500 focus:ring-alzak-blue/40'
-          }`}
-        >
-          <option value="">— Proyecto —</option>
-          {projects.map((p) => (
-            <option key={p.id_proyecto} value={p.id_proyecto}>{p.id_proyecto}</option>
-          ))}
-        </select>
+        <div className="relative w-[96px]">
+          {proyId && !editProjectId ? (
+            <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border ${
+              isProjectInvalid
+                ? 'border-red-500 bg-red-50 dark:bg-red-900/30'
+                : 'border-slate-200 dark:border-slate-700 bg-alzak-blue/10 dark:bg-alzak-gold/10'
+            }`}>
+              <span className="text-[10px] font-mono font-bold text-alzak-blue dark:text-alzak-gold truncate flex-1">{proyId}</span>
+              <button
+                type="button"
+                aria-label="Cambiar proyecto"
+                onClick={clearProject}
+                className="shrink-0 text-slate-400 hover:text-red-500 font-bold text-sm leading-none w-3.5 h-3.5 flex items-center justify-center"
+              >×</button>
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={projectSearchId}
+              onChange={(e) => { setProjectSearchId(e.target.value); setShowProjectsId(true); }}
+              onFocus={() => setShowProjectsId(true)}
+              onBlur={() => setTimeout(() => setShowProjectsId(false), 150)}
+              placeholder="ID / Nombre..."
+              aria-label="Buscar por ID de proyecto"
+              className={`w-full text-[10px] px-1.5 py-0.5 rounded-md border bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 ${
+                isProjectInvalid
+                  ? 'border-red-500 ring-1 ring-red-400 focus:ring-red-400'
+                  : 'border-slate-300 dark:border-slate-600 focus:ring-alzak-blue/40'
+              }`}
+            />
+          )}
+          {showProjectsId && filteredProjectsById.length > 0 && (
+            <div className="absolute z-30 left-0 top-full mt-1 w-64 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl max-h-52 overflow-y-auto kanban-scroll">
+              {filteredProjectsById.map((p) => (
+                <button
+                  key={p.id_proyecto}
+                  type="button"
+                  onMouseDown={() => selectProject(p.id_proyecto)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+                >
+                  <p className="text-[10px] font-mono font-bold text-alzak-blue dark:text-alzak-gold">{p.id_proyecto}</p>
+                  <p className="text-[9px] text-slate-500 truncate">{p.nombre_proyecto}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </td>
 
-      {/* Nombre Proyecto — cascada */}
+      {/* Nombre Proyecto — combobox búsqueda por nombre o ID */}
       <td className="px-2 py-1.5">
-        <span className="text-[10px] font-medium text-slate-700 dark:text-slate-200 line-clamp-2 block">
-          {proyNombre || <span className="text-slate-400 italic">—</span>}
-        </span>
+        <div className="relative min-w-[120px]">
+          {proyNombre && !editProjectNombre ? (
+            <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+              <span className="text-[10px] font-medium text-slate-700 dark:text-slate-200 truncate flex-1">{proyNombre}</span>
+              <button
+                type="button"
+                aria-label="Cambiar proyecto por nombre"
+                onClick={clearProject}
+                className="shrink-0 text-slate-400 hover:text-red-500 font-bold text-sm leading-none w-3.5 h-3.5 flex items-center justify-center"
+              >×</button>
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={projectSearchNombre}
+              onChange={(e) => { setProjectSearchNombre(e.target.value); setShowProjectsNombre(true); }}
+              onFocus={() => setShowProjectsNombre(true)}
+              onBlur={() => setTimeout(() => setShowProjectsNombre(false), 150)}
+              placeholder="Nombre..."
+              aria-label="Buscar por nombre de proyecto"
+              className="w-full text-[10px] px-1.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-alzak-blue/40"
+            />
+          )}
+          {showProjectsNombre && filteredProjectsByNombre.length > 0 && (
+            <div className="absolute z-30 left-0 top-full mt-1 w-64 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl max-h-52 overflow-y-auto kanban-scroll">
+              {filteredProjectsByNombre.map((p) => (
+                <button
+                  key={p.id_proyecto}
+                  type="button"
+                  onMouseDown={() => selectProject(p.id_proyecto)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+                >
+                  <p className="text-[9px] text-slate-500 truncate">{p.nombre_proyecto}</p>
+                  <p className="text-[10px] font-mono font-bold text-alzak-blue dark:text-alzak-gold">{p.id_proyecto}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </td>
 
       {/* Empresa — cascada */}
@@ -185,7 +285,7 @@ export default function RevisionRow({
             />
           )}
           {showUsers && filteredUsers.length > 0 && (
-            <div className="absolute z-20 left-0 top-full mt-1 w-52 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl overflow-hidden">
+            <div className="absolute z-20 left-0 top-full mt-1 w-52 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl max-h-52 overflow-y-auto kanban-scroll">
               {filteredUsers.map((u) => (
                 <button
                   key={u.correo}

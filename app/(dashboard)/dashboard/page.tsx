@@ -8,10 +8,16 @@ import { KPICards }             from '@/components/dashboard/KPICards';
 import { DashboardFilters }     from '@/components/dashboard/DashboardFilters';
 import { OverdueTasks }         from '@/components/dashboard/OverdueTasks';
 import { MisActividadesTable }  from '@/components/dashboard/MisActividadesTable';
+import { ActividadHeatmap }     from '@/components/dashboard/ActividadHeatmap';
+import { useActividadHeatmap }  from '@/hooks/useActividadHeatmap';
 
-const DonutChart      = dynamic(() => import('@/components/dashboard/BICharts').then((m) => m.DonutChart),      { ssr: false, loading: () => <ChartSkeleton /> });
-const StackedBarChart = dynamic(() => import('@/components/dashboard/BICharts').then((m) => m.StackedBarChart), { ssr: false, loading: () => <ChartSkeleton /> });
-const WorkloadChart   = dynamic(() => import('@/components/dashboard/BICharts').then((m) => m.WorkloadChart),   { ssr: false, loading: () => <ChartSkeleton /> });
+const DonutChart             = dynamic(() => import('@/components/dashboard/BICharts').then((m) => m.DonutChart),             { ssr: false, loading: () => <ChartSkeleton /> });
+const StackedBarChart        = dynamic(() => import('@/components/dashboard/BICharts').then((m) => m.StackedBarChart),        { ssr: false, loading: () => <ChartSkeleton /> });
+const WorkloadChart          = dynamic(() => import('@/components/dashboard/BICharts').then((m) => m.WorkloadChart),          { ssr: false, loading: () => <ChartSkeleton /> });
+const OverdueTasksChart      = dynamic(() => import('@/components/dashboard/BICharts').then((m) => m.OverdueTasksChart),      { ssr: false, loading: () => <ChartSkeleton /> });
+const PrioridadChart         = dynamic(() => import('@/components/dashboard/BICharts').then((m) => m.PrioridadChart),         { ssr: false, loading: () => <ChartSkeleton /> });
+const VencimientosChart      = dynamic(() => import('@/components/dashboard/BICharts').then((m) => m.VencimientosChart),      { ssr: false, loading: () => <ChartSkeleton /> });
+const ProgresoProyectosChart = dynamic(() => import('@/components/dashboard/BICharts').then((m) => m.ProgresoProyectosChart), { ssr: false, loading: () => <ChartSkeleton /> });
 
 function ChartSkeleton() {
   return (
@@ -28,9 +34,12 @@ export default function DashboardPage() {
   const {
     data, loading, error,
     filters, patchFilters, resetFilters,
-    projectOptions, exportCSV, refresh,
-    myTasks, generateReport, generateAdminReport,
+    projectOptions, empresas, exportCSV, refresh,
+    myTasks, generateReport, generateAdminReport, financiadores,
+    prioridad, vencimientos, progresoProyectos,
   } = useDashboardBI();
+
+  const { actividad, loading: loadingHeatmap } = useActividadHeatmap();
 
   return (
     <div className="space-y-6">
@@ -99,6 +108,8 @@ export default function DashboardPage() {
           <DashboardFilters
             filters={filters}
             projectOptions={projectOptions}
+            empresas={empresas}
+            financiadores={financiadores}
             onChange={patchFilters}
             onReset={resetFilters}
           />
@@ -124,24 +135,56 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Vista usuario: donut personal + mis actividades ── */}
+      {/* ── Vista usuario ── */}
       {!isAdmin && (
         <>
-          <div className="glass rounded-[20px] p-5 space-y-3">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              Mis Tareas por Estado
-            </p>
-            <DonutChart data={data.donut} />
+          {/* Heatmap de actividad */}
+          <ActividadHeatmap actividad={actividad} loading={loadingHeatmap} />
+
+          {/* Fila 1: Estado + Prioridad */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div id="chart-donut-user" className="glass rounded-[20px] p-5 space-y-3">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                Mis Tareas por Estado
+              </p>
+              <DonutChart data={data.donut} />
+            </div>
+            <div id="chart-prio-user" className="glass rounded-[20px] p-5 space-y-3">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                Distribución por Prioridad
+              </p>
+              <PrioridadChart data={prioridad} />
+            </div>
           </div>
 
+          {/* Fila 2: Próximos vencimientos */}
+          <div id="chart-venc-user" className="glass rounded-[20px] p-5 space-y-3">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                Próximos Vencimientos
+              </p>
+              <p className="text-[9px] text-slate-400 mt-0.5">
+                Tareas activas · excluye completadas
+              </p>
+            </div>
+            <VencimientosChart data={vencimientos} />
+          </div>
+
+          {/* Fila 3: Progreso por proyecto */}
+          <div id="chart-progreso-user" className="glass rounded-[20px] p-5 space-y-3">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              Progreso por Proyecto
+            </p>
+            <ProgresoProyectosChart data={progresoProyectos} />
+          </div>
+
+          {/* Tabla actividades */}
           <div className="glass rounded-[20px] p-5 space-y-4">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <p className="text-sm font-bold text-slate-800 dark:text-white">Mis Actividades</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {myTasks.length} tarea{myTasks.length !== 1 ? 's' : ''} · excluye pendientes de revisión
-                </p>
-              </div>
+            <div>
+              <p className="text-sm font-bold text-slate-800 dark:text-white">Mis Actividades</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {myTasks.length} tarea{myTasks.length !== 1 ? 's' : ''} · excluye pendientes de revisión
+              </p>
             </div>
             <MisActividadesTable tasks={myTasks} />
           </div>
@@ -152,13 +195,15 @@ export default function DashboardPage() {
       {isAdmin && (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="glass rounded-[20px] p-5 space-y-3">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            <div id="chart-donut" className="glass rounded-[20px] p-5 flex flex-col gap-3 min-h-[360px]">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0">
                 Distribución de Estados
               </p>
-              <DonutChart data={data.donut} />
+              <div className="flex-1 min-h-0 h-full">
+                <DonutChart data={data.donut} />
+              </div>
             </div>
-            <div className="glass rounded-[20px] p-5 space-y-3">
+            <div id="chart-stacked" className="glass rounded-[20px] p-5 space-y-3">
               <div>
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                   Eficiencia por Responsable (100%)
@@ -171,12 +216,16 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="glass rounded-[20px] p-5">
+          <div id="chart-workload" className="glass rounded-[20px] p-5">
             <WorkloadChart data={data.cargaLaboral} onExport={() => exportCSV('carga')} />
           </div>
 
-          <div className="glass rounded-[20px] p-5">
-            <OverdueTasks tareas={data.tareas_vencidas} onExport={() => exportCSV('vencidas')} />
+          <div id="chart-overdue" className="glass rounded-[20px] p-5">
+            <OverdueTasks
+              tareas={data.tareas_vencidas}
+              chart={<OverdueTasksChart tareas={data.tareas_vencidas} />}
+              onExport={() => exportCSV('vencidas')}
+            />
           </div>
 
           <div className="glass rounded-[20px] p-5 flex items-center gap-4">

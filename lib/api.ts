@@ -23,7 +23,11 @@ export async function uploadFileForText(file: File): Promise<string> {
 }
 
 export function backendBase(): string {
-  return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3005';
+  const url = process.env.NEXT_PUBLIC_API_URL;
+  if (url && url.length > 0) return url;
+  // Sin URL externa: proxy del dev server (browser → :3002/api-proxy → :3005)
+  if (typeof window !== 'undefined') return '/api-proxy';
+  return 'http://localhost:3005';
 }
 
 export async function authFetch(path: string, options: RequestInit = {}): Promise<Response> {
