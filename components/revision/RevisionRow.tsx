@@ -258,8 +258,8 @@ export default function RevisionRow({
           onBlur={saveDesc}
           rows={2}
           aria-label="Descripción de la tarea"
-          className="w-full text-[10px] text-slate-800 dark:text-slate-100 bg-transparent border-0 outline-none resize-none focus:ring-1 focus:ring-alzak-blue/30 rounded px-1 -mx-1 py-0 min-w-[160px] overflow-hidden"
-          style={{ minHeight: '2.5rem' }}
+          className="w-full text-[10px] text-slate-800 dark:text-slate-100 bg-transparent border-0 outline-none resize-none focus:ring-1 focus:ring-alzak-blue/30 rounded px-1 -mx-1 py-0 min-w-[160px] overflow-y-auto kanban-scroll"
+          style={{ minHeight: '2.5rem', maxHeight: '7.5rem' }}
         />
         {saving && <span className="text-[9px] text-slate-400 animate-pulse">guardando...</span>}
       </td>
